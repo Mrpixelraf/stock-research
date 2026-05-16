@@ -15,22 +15,25 @@ def check(path: str) -> int:
         return 1
 
     cn = len(re.findall(r"[一-鿿]", text))
-    rt = sorted(set(re.findall(r"RT-\d+", text)))
     modules = sorted(set(re.findall(r"M-\d+", text)))
     xml = len(re.findall(r"```xml", text))
+    debates = len(re.findall(r"^#{2,4}\s*争议", text, re.MULTILINE))
+    has_kd = "核心争议与反方观点" in text
 
-    expect_rt = {f"RT-{i:02d}" for i in range(1, 16)}
-    missing_rt = sorted(expect_rt - set(rt))
     expect_m = {f"M-{i:02d}" for i in range(1, 12)}
     missing_m = sorted(expect_m - set(modules))
+    kd_ok = has_kd and debates >= 5
+    legacy_rt = len(re.findall(r"🔴\s*\*\*RT-\d+", text))
 
     print(f"报告: {path}\n" + "-" * 50)
     print(f"中文字数      : {cn:>6}   目标 15000   {'✅' if cn >= 13000 else '⚠️ 偏少'}")
-    print(f"红队节点 RT   : {len(rt):>6}/15      {'✅' if not missing_rt else '❌ 缺 ' + ','.join(missing_rt)}")
+    print(f"核心争议专章  : {debates:>6} 条争议    {'✅' if kd_ok else '❌ 缺专章或争议 < 5'}")
     print(f"模块 M-       : {len(modules):>6}/11      {'✅' if not missing_m else '❌ 缺 ' + ','.join(missing_m)}")
     print(f"XML schema    : {xml:>6}/5       {'✅' if xml >= 5 else '❌ 不足'}")
+    if legacy_rt:
+        print(f"⚠️  检出 {legacy_rt} 个内联 🔴RT-XX 红框——v3.1 已弃用，应融入正文 + 收口核心争议专章")
 
-    ok = cn >= 13000 and not missing_rt and not missing_m and xml >= 5
+    ok = cn >= 13000 and not missing_m and xml >= 5 and kd_ok and not legacy_rt
     print("-" * 50)
     print("✅ 质检通过" if ok else "⚠️  未达标，回 Phase 2 补全")
     return 0 if ok else 2
